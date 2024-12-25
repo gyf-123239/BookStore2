@@ -233,7 +233,7 @@ class Buyer(db_conn.DBConn):
 
     def cancel_order(self, user_id: str, order_id: str) -> (int, str):
         try:
-            if not self.order_id_exist(user_id, order_id):
+            if not self.order_id_exist(order_id):
                 return error.error_non_exist_order_id(order_id)
             with self.conn:
                 with self.conn.cursor() as cursor:

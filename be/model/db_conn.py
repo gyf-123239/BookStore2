@@ -39,7 +39,7 @@ class DBConn:
             print(f"检查商店是否存在时出错: {str(e)}")
             return False
 
-    def order_id_exist(self, user_id, order_id):
+    def order_id_exist(self, order_id):
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute("SELECT COUNT(*) FROM new_order WHERE order_id = %s",(order_id,))
