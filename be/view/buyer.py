@@ -2,9 +2,9 @@ from flask import Blueprint
 from flask import request
 from flask import jsonify
 from be.model.buyer import Buyer
+from be.model import search
 
 bp_buyer = Blueprint("buyer", __name__, url_prefix="/buyer")
-
 
 @bp_buyer.route("/new_order", methods=["POST"])
 def new_order():
@@ -41,8 +41,6 @@ def add_funds():
     code, message = b.add_funds(user_id, password, add_value)
     return jsonify({"message": message}), code
 
-
-
 # 附加内容的前端
 # 确认收货接口：买家用户id、订单id，返回响应消息、状态码
 @bp_buyer.route("/receive_order", methods=["POST"])
@@ -71,4 +69,46 @@ def cancel_order():
     code, message = b.cancel_order(user_id, order_id)
     return jsonify({"message": message}), code
 
+@bp_buyer.route("/search", methods=["POST"])
+def search_books():
+    json_obj = request.get_json()
+    
+    keyword = json_obj.get("keyword", "")
+    search_scope = json_obj.get("search_scope", "all")
+    search_in_store = json_obj.get("search_in_store", False)
+    store_id = json_obj.get("store_id", None)
 
+    u = search.Search()
+    code, books = u.search_books(
+        keyword=keyword,
+        search_scope=search_scope,
+        search_in_store=search_in_store,
+        store_id=store_id
+    )
+
+    # 将查询结果转换为可序列化的格式
+    if code == 200:
+        books_list = []
+        for book in books:
+            book_dict = {
+                'id': book[0],
+                'title': book[1],
+                'author': book[2],
+                'publisher': book[3],
+                'original_title': book[4],
+                'translator': book[5],
+                'pub_year': book[6],
+                'pages': book[7],
+                'price': book[8],
+                'currency_unit': book[9],
+                'binding': book[10],
+                'isbn': book[11],
+                'author_intro': book[12],
+                'book_intro': book[13],
+                'content': book[14],
+                'tags': book[15]
+            }
+            books_list.append(book_dict)
+        return jsonify({"code": code, "books": books_list}), 200
+    else:
+        return jsonify({"code": code, "message": books}), code

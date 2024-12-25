@@ -51,6 +51,18 @@ class Seller:
         r = requests.post(url, headers=headers, json=json)
         return r.status_code
 
+    def search_books(self, keyword: str, search_scope: str = "all", 
+                search_in_store: bool = False, store_id: str = None) -> (int, list): 
+        json = {
+            "keyword": keyword,
+            "search_scope": search_scope,
+            "search_in_store": search_in_store,
+            "store_id": store_id
+        }
+        url = urljoin(self.url_prefix, "search")
+        r = requests.post(url, json=json)
+        return r.status_code, r.json().get("books", [])
+    
 def ship_order(store_id, order_id):
     json = {
         "store_id": store_id,
@@ -59,3 +71,4 @@ def ship_order(store_id, order_id):
     url = urljoin(urljoin(conf.URL, "seller/"), "ship_order")
     r = requests.post(url, json=json)
     return r.status_code
+

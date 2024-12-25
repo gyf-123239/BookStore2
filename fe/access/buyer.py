@@ -1,5 +1,4 @@
 import requests
-import simplejson
 from urllib.parse import urljoin
 from fe.access.auth import Auth
 
@@ -68,7 +67,7 @@ class Buyer:
                 order_info = i
         assert len(order_info.keys()) != 0
         return order_info
-
+    
     # 确认收货接口：买家用户id、订单id，返回响应消息、状态码
     def receive_order(self, order_id):
         json = {
@@ -90,3 +89,15 @@ class Buyer:
         headers = {"token": self.token}
         r = requests.post(url, headers=headers, json=json)
         return r.status_code
+
+    def search_books(self, keyword: str, search_scope: str = "all", 
+                search_in_store: bool = False, store_id: str = None) -> (int, list): 
+        json = {
+            "keyword": keyword,
+            "search_scope": search_scope,
+            "search_in_store": search_in_store,
+            "store_id": store_id
+        }
+        url = urljoin(self.url_prefix, "search")
+        r = requests.post(url, json=json)
+        return r.status_code, r.json().get("books", [])

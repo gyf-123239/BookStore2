@@ -64,6 +64,11 @@ def error_status_fail(order_id):
 def error_non_exist_order_id(order_id):               
     return 521, error_code[521].format(order_id)
 
+def error_book_not_found_in_the_store(keyword, store_id):
+    return 522, error_code[522].format(keyword, store_id)
+
+def error_book_not_found(keyword):
+    return 523, error_code[523].format(keyword)
 
 def error_authorization_fail():
     return 401, error_code[401]

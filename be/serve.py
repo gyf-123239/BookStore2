@@ -8,8 +8,6 @@ from be.view import auth
 from be.view import seller
 from be.view import buyer
 
-# 导入搜索书籍
-from be.view import search
 # 导入自动取消订单
 from apscheduler.schedulers.background import BackgroundScheduler     
 from be.model.auto_cancel import OrderAutoCancel
@@ -60,9 +58,6 @@ def be_run():
     app.register_blueprint(auth.bp_auth)
     app.register_blueprint(seller.bp_seller)
     app.register_blueprint(buyer.bp_buyer)
-
-    # 搜索书籍
-    app.register_blueprint(search.bp_book)
 
     init_completed_event.set()
     app.run()

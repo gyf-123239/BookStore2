@@ -1,5 +1,4 @@
 from fe.bench.workload import Workload
-from fe.bench.workload import NewOrder
 from fe.bench.workload import Payment
 from fe.bench.workload import ShipOrder
 from fe.bench.workload import ReceiveOrder

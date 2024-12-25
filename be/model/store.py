@@ -2,7 +2,6 @@ import psycopg2
 import logging
 import threading
 
-
 class Store:
     def __init__(self, db_path):
         self.init_tables_postgres()
@@ -14,7 +13,7 @@ class Store:
                     # user 表
                     cursor.execute("DROP TABLE IF EXISTS \"user\" CASCADE;")
                     cursor.execute("""
-                        CREATE TABLE IF NOT EXISTS "user" (
+                        CREATE TABLE IF NOT EXISTS \"user\" (
                             user_id TEXT PRIMARY KEY,
                             password TEXT NOT NULL,
                             balance INTEGER NOT NULL,
