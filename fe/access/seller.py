@@ -4,7 +4,6 @@ from fe.access import search
 from fe.access.auth import Auth
 from fe import conf
 
-
 class Seller:
     def __init__(self, url_prefix, seller_id: str, password: str):
         self.url_prefix = urljoin(url_prefix, "seller/")
