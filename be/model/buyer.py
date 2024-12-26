@@ -12,11 +12,12 @@ class Buyer(db_conn.DBConn):
     def new_order(self, user_id: str, store_id: str, id_and_count: [(str, int)]) -> (int, str, str):
         order_id = ""
         try:
-            if not self.user_id_exist(user_id):
-                return error.error_non_exist_user_id(user_id) + (order_id,)
-            if not self.store_id_exist(store_id):
-                return error.error_non_exist_store_id(store_id) + (order_id,)
-            with self.conn:
+            with self.transaction():
+                if not self.user_id_exist(user_id):
+                    return error.error_non_exist_user_id(user_id) + (order_id,)
+                if not self.store_id_exist(store_id):
+                    return error.error_non_exist_store_id(store_id) + (order_id,)
+            
                 uid = "{}_{}_{}".format(user_id, store_id, str(uuid.uuid1()))
 
                 for book_id, count in id_and_count:
@@ -57,7 +58,7 @@ class Buyer(db_conn.DBConn):
                     """, (uid, store_id, user_id, "unpaid", datetime.now().isoformat()))
                 order_id = uid
 
-        except Exception as e: 
+        except Exception as e:
             logging.error(f"Error creating new order: {e}")
             return 530, "{}".format(str(e)), ""
 
@@ -65,7 +66,7 @@ class Buyer(db_conn.DBConn):
 
     def payment(self, user_id: str, password: str, order_id: str) -> (int, str):
         try:
-            with self.conn:
+            with self.transaction():
                 with self.conn.cursor() as cursor:
                     # 查询订单信息
                     cursor.execute("""
@@ -80,7 +81,6 @@ class Buyer(db_conn.DBConn):
                     buyer_id = order_data[0]
                     if buyer_id!= user_id:
                         return error.error_authorization_fail()
-                    
                     if order_data[1] != "unpaid":
                         return error.error_status_fail()
                     
@@ -120,38 +120,38 @@ class Buyer(db_conn.DBConn):
                         WHERE order_id = %s
                     """, (order_id,))
                     return 200, "ok"
-        except Exception as e:  
+        except Exception as e:
             logging.error(f"Error payment: {e}")
             return 530, "{}".format(str(e))
-        
+
     def receive_order(self, user_id: str, order_id: str) -> (int, str):
         try:
-            with self.conn:
+            with self.transaction():
                 with self.conn.cursor() as cursor:
                     # 查询订单信息
                     cursor.execute("""
-                    SELECT user_id, store_id, status 
-                    FROM new_order 
+                    SELECT user_id, store_id, status
+                    FROM new_order
                     WHERE order_id = %s
-                    """,(order_id,))
+                    """, (order_id,))
                     order_info = cursor.fetchone()
 
                     if order_info is None:
                         return error.error_invalid_order_id(order_id)
-                    
+
                     buyer_id = order_info[0]
                     if buyer_id != user_id:
                         return error.error_authorization_fail()
-                    
+
                     status = order_info[2]
-                    if status!= "shipped":
+                    if status != "shipped":
                         return error.error_status_fail(order_id)
 
                     store_id = order_info[1]
 
                     cursor.execute(
-                    "SELECT user_id FROM user_store WHERE store_id = %s",
-                    (store_id,)
+                        "SELECT user_id FROM user_store WHERE store_id = %s",
+                        (store_id,)
                     )
                     seller = cursor.fetchone()
                     seller_id = seller[0]
@@ -173,16 +173,14 @@ class Buyer(db_conn.DBConn):
                         SET status = 'received'
                         WHERE order_id = %s
                     """, (order_id,))
-
-        except (Exception, psycopg2.Error) as e:
+        except Exception as e:
             logging.error(f"Error receive_order: {e}")
             return 530, "{}".format(str(e))
-
         return 200, "ok"
 
     def add_funds(self, user_id, password, add_value) -> (int, str):
         try:
-            with self.conn:
+            with self.transaction():
                 with self.conn.cursor() as cursor:
                     # 查询用户密码
                     cursor.execute("""
@@ -204,38 +202,41 @@ class Buyer(db_conn.DBConn):
                         WHERE user_id = %s
                     """, (add_value, user_id))
                     return 200, "ok"
-        except (Exception, psycopg2.Error) as e:
+        except Exception as e:
             logging.error(f"Error adding funds: {e}")
             return 530, "{}".format(str(e))
 
     def get_buyer_orders(self, user_id: str) -> (int, str, list):
         try:
-            if not self.user_id_exist(user_id):
-                return error.error_non_exist_user_id(user_id) + ("None",)
-            with self.conn.cursor() as cursor:
-                # 查询买家的所有订单
-                cursor.execute("""
-                    SELECT store_id, order_id, status
-                    FROM new_order
-                    WHERE user_id = %s
-                """, (user_id,))
-                buyer_orders = []
-                for row in cursor.fetchall():
-                    buyer_orders.append({
-                        'store_id': row[0],
-                        'order_id': row[1],
-                        'status': row[2]
-                    })
+            with self.transaction():
+                if not self.user_id_exist(user_id):
+                    return error.error_non_exist_user_id(user_id) + ("None",)
+            
+                with self.conn.cursor() as cursor:
+                    # 查询买家的所有订单
+                    cursor.execute("""
+                        SELECT store_id, order_id, status
+                        FROM new_order
+                        WHERE user_id = %s
+                    """, (user_id,))
+                    buyer_orders = []
+                    for row in cursor.fetchall():
+                        buyer_orders.append({
+                            'store_id': row[0],
+                            'order_id': row[1],
+                            'status': row[2]
+                        })
             return 200, "ok", buyer_orders
-        except (Exception, psycopg2.Error) as e:
+        except Exception as e:
             logging.error(f"Error get_buyer_orders: {e}")
             return 530, "{}".format(str(e)), []
 
     def cancel_order(self, user_id: str, order_id: str) -> (int, str):
         try:
-            if not self.order_id_exist(order_id):
-                return error.error_non_exist_order_id(order_id)
-            with self.conn:
+            with self.transaction():
+                if not self.order_id_exist(order_id):
+                    return error.error_non_exist_order_id(order_id)
+            
                 with self.conn.cursor() as cursor:
                     # 查询订单信息
                     cursor.execute("""
@@ -286,6 +287,6 @@ class Buyer(db_conn.DBConn):
                         WHERE order_id = %s
                     """, (order_id,))
                     return 200, "ok"
-        except (Exception, psycopg2.Error) as e:
+        except Exception as e:
             logging.error(f"Error canceling order: {e}")
             return 530, "{}".format(str(e))

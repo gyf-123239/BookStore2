@@ -9,7 +9,7 @@ class OrderAutoCancel(db_conn.DBConn):
 
     def cancel_unpaid_orders(self):
         try:
-            with self.conn:
+            with self.transaction():
                 with self.conn.cursor() as cursor:
                     # 查询未支付的订单
                     cursor.execute("""
@@ -32,7 +32,7 @@ class OrderAutoCancel(db_conn.DBConn):
                                 SET status = 'cancelled'
                                 WHERE order_id = %s
                             """, (order_id,))
-        except Exception as e:  
+        except Exception as e:
             logging.error(f"Error auto cancel_unpaid_orders: {e}")
             return 530, "not"
         return 200, "ok"

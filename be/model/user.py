@@ -19,8 +19,9 @@ def jwt_decode(encoded_token, user_id: str) -> str:
     decoded = jwt.decode(encoded_token, key=user_id, algorithms="HS256")
     return decoded
 
-class User:
-    token_lifetime: int = 3600  # 令牌有效期为3600秒（1小时）
+class User(db_conn.DBConn):
+    token_lifetime: int = 3600  # 令牌有效期为 3600 秒（1 小时）
+
 
     def __init__(self):
         db_conn.DBConn.__init__(self)
@@ -44,18 +45,21 @@ class User:
 
     def register(self, user_id: str, password: str):
         try:
-            # 生成终端标识和令牌
-            terminal = "terminal_{}".format(str(time.time()))
-            token = jwt_encode(user_id, terminal)
             # 插入用户数据
-            with self.conn:
+            with self.transaction():
+                # 生成终端标识和令牌
+                terminal = "terminal_{}".format(str(time.time()))
+                token = jwt_encode(user_id, terminal)
+
+                if self.user_id_exist(user_id):
+                    return error.error_exist_user_id(user_id)
                 cursor = self.conn.cursor()
                 cursor.execute(
                     "INSERT INTO \"user\" (user_id, password, balance, token, terminal) VALUES (%s, %s, %s, %s, %s)",
                     (user_id, password, 0, token, terminal)
                 )
                 cursor.close()
-        except (errors.DatabaseError, psycopg2.Error) as e:
+        except Exception as e:
             return error.error_exist_user_id(user_id)
         return 200, "ok"
 
@@ -98,14 +102,15 @@ class User:
     def login(self, user_id: str, password: str, terminal: str) -> (int, str, str):
         token = ""
         try:
-            # 验证密码
-            code, message = self.check_password(user_id, password)
-            if code!= 200:
-                return code, message, ""
+            with self.transaction():
+                # 验证密码
+                code, message = self.check_password(user_id, password)
+                if code!= 200:
+                    return code, message, ""
 
-            # 生成新令牌并更新用户信息
-            token = jwt_encode(user_id, terminal)
-            with self.conn:
+                # 生成新令牌并更新用户信息
+                token = jwt_encode(user_id, terminal)
+            
                 cursor = self.conn.cursor()
                 cursor.execute(
                     "UPDATE \"user\" SET token = %s, terminal = %s WHERE user_id = %s",
@@ -114,23 +119,22 @@ class User:
                 if cursor.rowcount == 0:
                     return error.error_authorization_fail() + ("",)
                 cursor.close()
-        except (errors.DatabaseError, psycopg2.Error) as e:
-            return 528, "{}".format(str(e)), ""
         except Exception as e:
             return 530, "{}".format(str(e)), ""
         return 200, "ok", token
 
     def logout(self, user_id: str, token: str) -> (int, str):
         try:
-            # 验证令牌
-            code, message = self.check_token(user_id, token)
-            if code!= 200:
-                return code, message
+            with self.transaction():
+                # 验证令牌
+                code, message = self.check_token(user_id, token)
+                if code!= 200:
+                    return code, message
 
-            # 生成新的临时令牌替换旧令牌
-            terminal = "terminal_{}".format(str(time.time()))
-            dummy_token = jwt_encode(user_id, terminal)
-            with self.conn:
+                # 生成新的临时令牌替换旧令牌
+                terminal = "terminal_{}".format(str(time.time()))
+                dummy_token = jwt_encode(user_id, terminal)
+            
                 cursor = self.conn.cursor()
                 cursor.execute(
                     "UPDATE \"user\" SET token = %s, terminal = %s WHERE user_id = %s",
@@ -139,19 +143,17 @@ class User:
                 if cursor.rowcount == 0:
                     return error.error_authorization_fail()
                 cursor.close()
-        except (errors.DatabaseError, psycopg2.Error) as e:
-            return 528, "{}".format(str(e))
         except Exception as e:
             return 530, "{}".format(str(e))
         return 200, "ok"
 
     def unregister(self, user_id: str, password: str) -> (int, str):
         try:
-            code, message = self.check_password(user_id, password)
-            if code!= 200:
-                return code, message
+            with self.transaction():
+                code, message = self.check_password(user_id, password)
+                if code!= 200:
+                    return code, message
 
-            with self.conn:
                 cursor = self.conn.cursor()
                 cursor.execute(
                     "DELETE FROM \"user\" WHERE user_id = %s",
@@ -160,22 +162,21 @@ class User:
                 if cursor.rowcount == 0:
                     return error.error_authorization_fail()
                 cursor.close()
-        except (errors.DatabaseError, psycopg2.Error) as e:
-            return 528, "{}".format(str(e))
         except Exception as e:
             return 530, "{}".format(str(e))
         return 200, "ok"
 
     def change_password(self, user_id: str, old_password: str, new_password: str) -> (int, str):
         try:
-            # 验证旧密码
-            code, message = self.check_password(user_id, old_password)
-            if code!= 200:
-                return code, message
+            with self.transaction():
+                # 验证旧密码
+                code, message = self.check_password(user_id, old_password)
+                if code!= 200:
+                    return code, message
 
-            terminal = "terminal_{}".format(str(time.time()))
-            token = jwt_encode(user_id, terminal)
-            with self.conn:
+                terminal = "terminal_{}".format(str(time.time()))
+                token = jwt_encode(user_id, terminal)
+            
                 cursor = self.conn.cursor()
                 cursor.execute(
                     "UPDATE \"user\" SET password = %s, token = %s, terminal = %s WHERE user_id = %s",
@@ -184,8 +185,6 @@ class User:
                 if cursor.rowcount == 0:
                     return error.error_authorization_fail()
                 cursor.close()
-        except (errors.DatabaseError, psycopg2.Error) as e:
-            return 528, "{}".format(str(e))
         except Exception as e:
             return 530, "{}".format(str(e))
         return 200, "ok"

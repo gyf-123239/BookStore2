@@ -47,6 +47,26 @@ postgres_cursor.execute("""
     )
 """)
 postgres_conn.commit()
+# 在 book 表的 title 列上创建普通索引
+postgres_cursor.execute("""
+    CREATE INDEX IF NOT EXISTS idx_book_title ON book(title);
+""")
+postgres_conn.commit()
+# 在 book 表的 author 列上创建普通索引
+postgres_cursor.execute("""
+    CREATE INDEX IF NOT EXISTS idx_book_author ON book(author);
+""")
+postgres_conn.commit()
+# 在 book 表的 tag 列上创建普通索引
+postgres_cursor.execute("""
+CREATE INDEX IF NOT EXISTS idx_book_tag ON book(tags);
+""")
+postgres_conn.commit()
+# 在 book 表的 content 列上创建全文索引
+postgres_cursor.execute("""
+CREATE INDEX IF NOT EXISTS idx_book_content ON book USING gin(to_tsvector('simple', content));
+""")
+postgres_conn.commit()
 
 # 查询SQLite数据库中的书籍信息
 sqlite_cursor.execute("SELECT * FROM book")
